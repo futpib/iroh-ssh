@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
@@ -7,13 +9,12 @@ use iroh::{EndpointId, RelayUrl};
 
 use crate::IrohSsh;
 
-static INSTANCE: Mutex<Option<ProxyState>> = Mutex::const_new(None);
+static CONNECTIONS: LazyLock<Mutex<HashMap<u16, ConnectionState>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
-struct ProxyState {
+struct ConnectionState {
     #[allow(dead_code)]
     iroh_ssh: IrohSsh,
-    #[allow(dead_code)]
-    local_port: u16,
     shutdown: tokio::sync::watch::Sender<bool>,
 }
 
@@ -25,6 +26,7 @@ fn parse_relay_urls(urls: &[String]) -> anyhow::Result<Vec<RelayUrl>> {
 
 /// Connect to a remote iroh-ssh endpoint.
 /// Returns the local TCP port to connect an SSH client to.
+/// The port also serves as the connection identifier for `disconnect_iroh`.
 ///
 /// `relay_urls` replaces the default relay servers; `extra_relay_urls` adds alongside them.
 /// Pass empty vectors to use defaults.
@@ -78,26 +80,34 @@ pub async fn connect_iroh(
         }
     });
 
-    *INSTANCE.lock().await = Some(ProxyState {
+    CONNECTIONS.lock().await.insert(local_port, ConnectionState {
         iroh_ssh,
-        local_port,
         shutdown: shutdown_tx,
     });
 
     Ok(local_port)
 }
 
-/// Disconnect and clean up.
-pub async fn disconnect_iroh() -> anyhow::Result<()> {
-    if let Some(state) = INSTANCE.lock().await.take() {
+/// Disconnect a connection by its port.
+pub async fn disconnect_iroh(port: u16) -> anyhow::Result<()> {
+    if let Some(state) = CONNECTIONS.lock().await.remove(&port) {
         let _ = state.shutdown.send(true);
     }
     Ok(())
 }
 
-/// Check if currently connected.
-pub async fn is_connected() -> bool {
-    INSTANCE.lock().await.is_some()
+/// Disconnect all active connections.
+pub async fn disconnect_all() -> anyhow::Result<()> {
+    let mut connections = CONNECTIONS.lock().await;
+    for (_, state) in connections.drain() {
+        let _ = state.shutdown.send(true);
+    }
+    Ok(())
+}
+
+/// Get the number of active connections.
+pub async fn connection_count() -> usize {
+    CONNECTIONS.lock().await.len()
 }
 
 async fn proxy_connection(
