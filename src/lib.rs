@@ -1,16 +1,27 @@
+#[cfg(feature = "cli")]
 mod cli;
+#[cfg(feature = "cli")]
 mod service;
 mod ssh;
 
 use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 use iroh::{Endpoint, RelayUrl, protocol::Router};
 
+#[cfg(feature = "cli")]
 pub mod api;
 
+#[cfg(feature = "flutter")]
+pub mod bridge;
+
+#[cfg(feature = "cli")]
 pub use cli::*;
+#[cfg(feature = "cli")]
 pub use service::Service;
+#[cfg(feature = "cli")]
 pub use service::ServiceParams;
+#[cfg(feature = "cli")]
 pub use service::{install_service, run_service, uninstall_service};
+#[cfg(feature = "cli")]
 pub use ssh::dot_ssh;
 
 #[derive(Debug, Clone)]

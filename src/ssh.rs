@@ -1,8 +1,13 @@
-use crate::{Builder, Inner, IrohSsh, cli::SshOpts};
+use crate::{Builder, Inner, IrohSsh};
+#[cfg(feature = "cli")]
+use crate::cli::SshOpts;
+#[cfg(feature = "cli")]
 use std::{ffi::OsString, process::Stdio};
 
+#[cfg(feature = "cli")]
 use anyhow::bail;
 use ed25519_dalek::SECRET_KEY_LENGTH;
+#[cfg(feature = "cli")]
 use homedir::my_home;
 use std::sync::Arc;
 
@@ -10,10 +15,9 @@ use iroh::{
     RelayConfig,
     endpoint::{Connection, RelayMode}, protocol::{ProtocolHandler, Router}, Endpoint, EndpointId, RelayUrl, SecretKey
 };
-use tokio::{
-    net::TcpStream,
-    process::{Child, Command},
-};
+use tokio::net::TcpStream;
+#[cfg(feature = "cli")]
+use tokio::process::{Child, Command};
 
 impl Builder {
     pub fn new() -> Self {
@@ -51,6 +55,7 @@ impl Builder {
         self
     }
 
+    #[cfg(feature = "cli")]
     pub fn dot_ssh_integration(mut self, persist: bool, service: bool) -> Self {
         tracing::info!(
             "dot_ssh_integration: persist={}, service={}",
@@ -135,6 +140,7 @@ impl IrohSsh {
         self.inner = Some(Inner { endpoint, router });
     }
 
+    #[cfg(feature = "cli")]
     pub async fn start_ssh(
         &self,
         target: String,
@@ -284,6 +290,7 @@ impl ProtocolHandler for IrohSsh {
     }
 }
 
+#[cfg(feature = "cli")]
 pub fn dot_ssh(
     default_secret_key: &SecretKey,
     persist: bool,
