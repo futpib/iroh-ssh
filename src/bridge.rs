@@ -13,7 +13,6 @@ static CONNECTIONS: LazyLock<Mutex<HashMap<u16, ConnectionState>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 struct ConnectionState {
-    #[allow(dead_code)]
     iroh_ssh: IrohSsh,
     shutdown: tokio::sync::watch::Sender<bool>,
 }
@@ -88,19 +87,26 @@ pub async fn connect_iroh(
     Ok(local_port)
 }
 
+async fn shutdown_connection(state: ConnectionState) {
+    let _ = state.shutdown.send(true);
+    if let Some(inner) = state.iroh_ssh.inner {
+        inner.router.shutdown().await.ok();
+    }
+}
+
 /// Disconnect a connection by its port.
 pub async fn disconnect_iroh(port: u16) -> anyhow::Result<()> {
     if let Some(state) = CONNECTIONS.lock().await.remove(&port) {
-        let _ = state.shutdown.send(true);
+        shutdown_connection(state).await;
     }
     Ok(())
 }
 
 /// Disconnect all active connections.
 pub async fn disconnect_all() -> anyhow::Result<()> {
-    let mut connections = CONNECTIONS.lock().await;
-    for (_, state) in connections.drain() {
-        let _ = state.shutdown.send(true);
+    let connections: Vec<_> = CONNECTIONS.lock().await.drain().collect();
+    for (_, state) in connections {
+        shutdown_connection(state).await;
     }
     Ok(())
 }
