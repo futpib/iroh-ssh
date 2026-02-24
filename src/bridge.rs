@@ -3,7 +3,7 @@ use std::str::FromStr;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
-use iroh::EndpointId;
+use iroh::{EndpointId, RelayUrl};
 
 use crate::IrohSsh;
 
@@ -17,11 +17,26 @@ struct ProxyState {
     shutdown: tokio::sync::watch::Sender<bool>,
 }
 
+fn parse_relay_urls(urls: &[String]) -> anyhow::Result<Vec<RelayUrl>> {
+    urls.iter()
+        .map(|s| RelayUrl::from_str(s).map_err(|e| anyhow::anyhow!("invalid relay URL '{s}': {e}")))
+        .collect()
+}
+
 /// Connect to a remote iroh-ssh endpoint.
 /// Returns the local TCP port to connect an SSH client to.
-pub async fn connect_iroh(endpoint_id: String) -> anyhow::Result<u16> {
+///
+/// `relay_urls` replaces the default relay servers; `extra_relay_urls` adds alongside them.
+/// Pass empty vectors to use defaults.
+pub async fn connect_iroh(
+    endpoint_id: String,
+    relay_urls: Vec<String>,
+    extra_relay_urls: Vec<String>,
+) -> anyhow::Result<u16> {
     let iroh_ssh = IrohSsh::builder()
         .accept_incoming(false)
+        .relay_urls(parse_relay_urls(&relay_urls)?)
+        .extra_relay_urls(parse_relay_urls(&extra_relay_urls)?)
         .build()
         .await?;
 
