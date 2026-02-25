@@ -250,7 +250,7 @@ impl IrohSsh {
 
 impl ProtocolHandler for IrohSsh {
     async fn accept(&self, connection: Connection) -> Result<(), iroh::protocol::AcceptError> {
-        let endpoint_id = connection.remote_id()?;
+        let endpoint_id = connection.remote_id();
 
         match connection.accept_bi().await {
             Ok((mut iroh_send, mut iroh_recv)) => {
