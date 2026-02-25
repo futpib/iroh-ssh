@@ -22,7 +22,7 @@ static CONNECTIONS: LazyLock<Mutex<HashMap<u16, ConnectionState>>> =
 struct ConnectionState {
     iroh_ssh: IrohSsh,
     shutdown: tokio::sync::watch::Sender<bool>,
-    connection_info: Arc<std::sync::Mutex<Option<iroh::endpoint::ConnectionInfo>>>,
+    connection: Arc<std::sync::Mutex<Option<iroh::endpoint::Connection>>>,
 }
 
 fn parse_relay_urls(urls: &[String]) -> anyhow::Result<Vec<RelayUrl>> {
@@ -56,11 +56,11 @@ pub async fn connect(
 
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
 
-    let connection_info: Arc<std::sync::Mutex<Option<iroh::endpoint::ConnectionInfo>>> =
+    let connection: Arc<std::sync::Mutex<Option<iroh::endpoint::Connection>>> =
         Arc::new(std::sync::Mutex::new(None));
 
     let inner = iroh_ssh.inner.as_ref().unwrap().clone();
-    let connection_info_slot = connection_info.clone();
+    let connection_slot = connection.clone();
 
     tokio::spawn(async move {
         loop {
@@ -70,10 +70,10 @@ pub async fn connect(
                         Ok((tcp_stream, _)) => {
                             let inner = inner.clone();
                             let eid = parsed_id;
-                            let info_slot = connection_info_slot.clone();
+                            let conn_slot = connection_slot.clone();
                             tokio::spawn(async move {
                                 if let Err(e) = proxy_connection(
-                                    tcp_stream, &inner.endpoint, eid, info_slot
+                                    tcp_stream, &inner.endpoint, eid, conn_slot
                                 ).await {
                                     tracing::error!("proxy error: {e}");
                                 }
@@ -95,7 +95,7 @@ pub async fn connect(
     CONNECTIONS.lock().await.insert(local_port, ConnectionState {
         iroh_ssh,
         shutdown: shutdown_tx,
-        connection_info,
+        connection,
     });
 
     Ok(local_port)
@@ -138,22 +138,20 @@ pub async fn connection_info(port: u16) -> anyhow::Result<Option<IrohConnectionI
         .get(&port)
         .ok_or_else(|| anyhow::anyhow!("no connection on port {port}"))?;
 
-    let info = state.connection_info.lock().unwrap().clone();
-    let Some(info) = info else {
+    let conn = state.connection.lock().unwrap().clone();
+    let Some(conn) = conn else {
         return Ok(None);
     };
 
-    let Some(path) = info.selected_path() else {
+    let info = conn.remote_info();
+    let Some(path) = info.path else {
         return Ok(None);
     };
 
-    let is_direct = path.is_ip();
-    let is_relay = path.is_relay();
-    let relay_url = match path.remote_addr() {
-        iroh::TransportAddr::Relay(url) => Some(url.to_string()),
-        _ => None,
-    };
-    let latency_ms = Some(path.rtt().as_secs_f64() * 1000.0);
+    let is_direct = path.is_direct();
+    let is_relay = !path.is_direct();
+    let relay_url = path.relay_url.as_ref().map(|u| u.to_string());
+    let latency_ms = path.latency.map(|d| d.as_secs_f64() * 1000.0);
 
     Ok(Some(IrohConnectionInfo {
         is_direct,
@@ -167,14 +165,14 @@ async fn proxy_connection(
     mut tcp_stream: tokio::net::TcpStream,
     endpoint: &iroh::Endpoint,
     endpoint_id: EndpointId,
-    connection_info_slot: Arc<std::sync::Mutex<Option<iroh::endpoint::ConnectionInfo>>>,
+    connection_slot: Arc<std::sync::Mutex<Option<iroh::endpoint::Connection>>>,
 ) -> anyhow::Result<()> {
     let conn = endpoint.connect(endpoint_id, &IrohSsh::ALPN()).await?;
 
     {
-        let mut slot = connection_info_slot.lock().unwrap();
+        let mut slot = connection_slot.lock().unwrap();
         if slot.is_none() {
-            *slot = Some(conn.to_info());
+            *slot = Some(conn.clone());
         }
     }
 
