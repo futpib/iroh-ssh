@@ -143,7 +143,7 @@ pub async fn connection_info(port: u16) -> anyhow::Result<Option<IrohConnectionI
         return Ok(None);
     };
 
-    let Some(path) = conn.selected_path() else {
+    let Some(path) = conn.to_info().selected_path() else {
         return Ok(None);
     };
 
