@@ -143,15 +143,17 @@ pub async fn connection_info(port: u16) -> anyhow::Result<Option<IrohConnectionI
         return Ok(None);
     };
 
-    let info = conn.remote_info();
-    let Some(path) = info.path else {
+    let Some(path) = conn.selected_path() else {
         return Ok(None);
     };
 
-    let is_direct = path.is_direct();
-    let is_relay = !path.is_direct();
-    let relay_url = path.relay_url.as_ref().map(|u| u.to_string());
-    let latency_ms = path.latency.map(|d| d.as_secs_f64() * 1000.0);
+    let is_direct = path.is_ip();
+    let is_relay = path.is_relay();
+    let relay_url = match path.remote_addr() {
+        iroh::TransportAddr::Relay(url) => Some(url.to_string()),
+        _ => None,
+    };
+    let latency_ms = Some(path.rtt().as_secs_f64() * 1000.0);
 
     Ok(Some(IrohConnectionInfo {
         is_direct,
