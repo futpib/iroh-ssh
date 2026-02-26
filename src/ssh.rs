@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use iroh::{
     RelayConfig,
-    endpoint::{Connection, RelayMode}, protocol::{ProtocolHandler, Router}, Endpoint, EndpointId, RelayUrl, SecretKey
+    endpoint::{Connection, QuicTransportConfig, RelayMode}, protocol::{ProtocolHandler, Router}, Endpoint, EndpointId, RelayUrl, SecretKey
 };
 use tokio::net::TcpStream;
 #[cfg(feature = "cli")]
@@ -27,6 +27,7 @@ impl Builder {
             accept_port: None,
             relay_urls: Vec::new(),
             extra_relay_urls: Vec::new(),
+            max_remote_nat_traversal_addresses: None,
         }
     }
 
@@ -52,6 +53,11 @@ impl Builder {
 
     pub fn extra_relay_urls(mut self, urls: Vec<RelayUrl>) -> Self {
         self.extra_relay_urls = urls;
+        self
+    }
+
+    pub fn max_remote_nat_traversal_addresses(mut self, max: Option<u8>) -> Self {
+        self.max_remote_nat_traversal_addresses = max;
         self
     }
 
@@ -86,6 +92,13 @@ impl Builder {
         // Iroh setup
         let secret_key = SecretKey::from_bytes(&self.secret_key);
         let mut builder = Endpoint::builder().secret_key(secret_key);
+
+        if let Some(max) = self.max_remote_nat_traversal_addresses {
+            let transport_config = QuicTransportConfig::builder()
+                .set_max_remote_nat_traversal_addresses(max)
+                .build();
+            builder = builder.transport_config(transport_config);
+        }
 
         if !self.relay_urls.is_empty() {
             let relay_map = self.relay_urls.iter().cloned().collect();

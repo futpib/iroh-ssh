@@ -9,6 +9,13 @@ use iroh::{EndpointId, RelayUrl};
 
 use crate::IrohSsh;
 
+#[derive(Debug, Clone, Default)]
+pub struct ConnectOptions {
+    pub relay_urls: Vec<String>,
+    pub extra_relay_urls: Vec<String>,
+    pub max_remote_nat_traversal_addresses: Option<u8>,
+}
+
 pub struct IrohConnectionInfo {
     pub is_direct: bool,
     pub is_relay: bool,
@@ -34,18 +41,15 @@ fn parse_relay_urls(urls: &[String]) -> anyhow::Result<Vec<RelayUrl>> {
 /// Connect to a remote iroh-ssh endpoint.
 /// Returns the local TCP port to connect an SSH client to.
 /// The port also serves as the connection identifier for `disconnect`.
-///
-/// `relay_urls` replaces the default relay servers; `extra_relay_urls` adds alongside them.
-/// Pass empty vectors to use defaults.
 pub async fn connect(
     endpoint_id: String,
-    relay_urls: Vec<String>,
-    extra_relay_urls: Vec<String>,
+    options: ConnectOptions,
 ) -> anyhow::Result<u16> {
     let iroh_ssh = IrohSsh::builder()
         .accept_incoming(false)
-        .relay_urls(parse_relay_urls(&relay_urls)?)
-        .extra_relay_urls(parse_relay_urls(&extra_relay_urls)?)
+        .relay_urls(parse_relay_urls(&options.relay_urls)?)
+        .extra_relay_urls(parse_relay_urls(&options.extra_relay_urls)?)
+        .max_remote_nat_traversal_addresses(options.max_remote_nat_traversal_addresses)
         .build()
         .await?;
 

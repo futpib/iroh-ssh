@@ -48,4 +48,5 @@ pub struct Builder {
     accept_port: Option<u16>,
     relay_urls: Vec<RelayUrl>,
     extra_relay_urls: Vec<RelayUrl>,
+    max_remote_nat_traversal_addresses: Option<u8>,
 }
