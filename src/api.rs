@@ -73,11 +73,13 @@ pub mod service {
         ssh_port: u16,
         relay_url: Vec<String>,
         extra_relay_url: Vec<String>,
+        max_remote_nat_traversal_addresses: Option<u8>,
     ) -> anyhow::Result<()> {
         if install_service(ServiceParams {
             ssh_port,
             relay_url,
             extra_relay_url,
+            max_remote_nat_traversal_addresses,
         })
         .await
         .is_err()
@@ -101,7 +103,8 @@ pub async fn server_mode(server_args: ServerArgs, service: bool) -> anyhow::Resu
         .accept_incoming(true)
         .accept_port(server_args.ssh_port)
         .relay_urls(parse_relay_urls(&server_args.relay_url)?)
-        .extra_relay_urls(parse_relay_urls(&server_args.extra_relay_url)?);
+        .extra_relay_urls(parse_relay_urls(&server_args.extra_relay_url)?)
+        .max_remote_nat_traversal_addresses(server_args.max_remote_nat_traversal_addresses);
     if server_args.persist {
         iroh_ssh_builder = iroh_ssh_builder.dot_ssh_integration(true, service);
     }
@@ -139,6 +142,7 @@ pub async fn proxy_mode(proxy_args: ProxyArgs) -> anyhow::Result<()> {
         .accept_incoming(false)
         .relay_urls(parse_relay_urls(&proxy_args.relay_url)?)
         .extra_relay_urls(parse_relay_urls(&proxy_args.extra_relay_url)?)
+        .max_remote_nat_traversal_addresses(proxy_args.max_remote_nat_traversal_addresses)
         .build()
         .await?;
     let endpoint_id = EndpointId::from_str(if proxy_args.endpoint_id.len() == 64 {
@@ -156,6 +160,7 @@ pub async fn client_mode(connect_args: ConnectArgs) -> anyhow::Result<()> {
         .accept_incoming(false)
         .relay_urls(parse_relay_urls(&connect_args.relay_url)?)
         .extra_relay_urls(parse_relay_urls(&connect_args.extra_relay_url)?)
+        .max_remote_nat_traversal_addresses(connect_args.max_remote_nat_traversal_addresses)
         .build()
         .await?;
     let mut ssh_process = iroh_ssh
@@ -165,6 +170,7 @@ pub async fn client_mode(connect_args: ConnectArgs) -> anyhow::Result<()> {
             connect_args.remote_cmd,
             &connect_args.relay_url,
             &connect_args.extra_relay_url,
+            connect_args.max_remote_nat_traversal_addresses,
         )
         .await?;
 

@@ -62,6 +62,9 @@ static SERVICE_RELAY_URLS: OnceLock<Vec<String>> = OnceLock::new();
 static SERVICE_EXTRA_RELAY_URLS: OnceLock<Vec<String>> = OnceLock::new();
 
 #[cfg(target_os = "windows")]
+static SERVICE_MAX_REMOTE_NAT_TRAVERSAL_ADDRESSES: OnceLock<Option<u8>> = OnceLock::new();
+
+#[cfg(target_os = "windows")]
 impl Service for WindowsService {
     async fn install(service_params: ServiceParams) -> anyhow::Result<()> {
         task::spawn_blocking(move || WindowsService::install_blocking(service_params))
@@ -106,6 +109,7 @@ impl WindowsService {
 
         let _ = SERVICE_RELAY_URLS.set(service_params.relay_url);
         let _ = SERVICE_EXTRA_RELAY_URLS.set(service_params.extra_relay_url);
+        let _ = SERVICE_MAX_REMOTE_NAT_TRAVERSAL_ADDRESSES.set(service_params.max_remote_nat_traversal_addresses);
 
         service_runtime::run().context("failed to start windows service dispatcher")?;
         Ok(())
@@ -124,6 +128,10 @@ impl WindowsService {
 
     fn service_extra_relay_urls() -> Vec<String> {
         SERVICE_EXTRA_RELAY_URLS.get().cloned().unwrap_or_default()
+    }
+
+    fn service_max_remote_nat_traversal_addresses() -> Option<u8> {
+        SERVICE_MAX_REMOTE_NAT_TRAVERSAL_ADDRESSES.get().copied().flatten()
     }
 
     pub const SERVICE_NAME: &'static str = "iroh-ssh";
@@ -235,6 +243,10 @@ impl WindowsService {
                 for url in &service_params.extra_relay_url {
                     args.push(OsString::from("--extra-relay-url"));
                     args.push(OsString::from(url));
+                }
+                if let Some(max) = service_params.max_remote_nat_traversal_addresses {
+                    args.push(OsString::from("--max-remote-nat-traversal-addresses"));
+                    args.push(OsString::from(max.to_string()));
                 }
                 args
             },
@@ -568,6 +580,7 @@ mod service_runtime {
         let ssh_port = WindowsService::service_port().map_err(anyhow_to_win_error)?;
         let relay_url = WindowsService::service_relay_urls();
         let extra_relay_url = WindowsService::service_extra_relay_urls();
+        let max_remote_nat_traversal_addresses = WindowsService::service_max_remote_nat_traversal_addresses();
 
         tracing::info!("run_service_worker: SSH port = {}", ssh_port);
 
@@ -614,6 +627,7 @@ mod service_runtime {
                     persist: true,
                     relay_url,
                     extra_relay_url,
+                    max_remote_nat_traversal_addresses,
                 },
                 true,
             )

@@ -51,6 +51,9 @@ impl LinuxService {
         for url in &service_params.extra_relay_url {
             relay_args.push_str(&format!(" --extra-relay-url {url}"));
         }
+        if let Some(max) = service_params.max_remote_nat_traversal_addresses {
+            relay_args.push_str(&format!(" --max-remote-nat-traversal-addresses {max}"));
+        }
 
         let mut temp_sh = tempfile::Builder::new()
             .prefix("iroh_ssh_install-")

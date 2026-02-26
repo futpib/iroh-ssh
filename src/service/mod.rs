@@ -13,11 +13,13 @@ pub async fn run_service(
     ssh_port: u16,
     relay_url: Vec<String>,
     extra_relay_url: Vec<String>,
+    max_remote_nat_traversal_addresses: Option<u8>,
 ) -> anyhow::Result<()> {
     WindowsService::run_service(ServiceParams {
         ssh_port,
         relay_url,
         extra_relay_url,
+        max_remote_nat_traversal_addresses,
     })
     .await
 }
@@ -27,6 +29,7 @@ pub async fn run_service(
     _ssh_port: u16,
     _relay_url: Vec<String>,
     _extra_relay_url: Vec<String>,
+    _max_remote_nat_traversal_addresses: Option<u8>,
 ) -> anyhow::Result<()> {
     anyhow::bail!("service run is only supported on windows");
 }
@@ -36,6 +39,7 @@ pub struct ServiceParams {
     pub ssh_port: u16,
     pub relay_url: Vec<String>,
     pub extra_relay_url: Vec<String>,
+    pub max_remote_nat_traversal_addresses: Option<u8>,
 }
 
 pub trait Service {

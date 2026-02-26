@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use iroh::{
     RelayConfig,
-    endpoint::{Connection, RelayMode}, protocol::{ProtocolHandler, Router}, Endpoint, EndpointId, RelayUrl, SecretKey
+    endpoint::{Connection, QuicTransportConfig, RelayMode}, protocol::{ProtocolHandler, Router}, Endpoint, EndpointId, RelayUrl, SecretKey
 };
 use tokio::{
     net::TcpStream,
@@ -23,6 +23,7 @@ impl Builder {
             accept_port: None,
             relay_urls: Vec::new(),
             extra_relay_urls: Vec::new(),
+            max_remote_nat_traversal_addresses: None,
         }
     }
 
@@ -48,6 +49,11 @@ impl Builder {
 
     pub fn extra_relay_urls(mut self, urls: Vec<RelayUrl>) -> Self {
         self.extra_relay_urls = urls;
+        self
+    }
+
+    pub fn max_remote_nat_traversal_addresses(mut self, max: Option<u8>) -> Self {
+        self.max_remote_nat_traversal_addresses = max;
         self
     }
 
@@ -81,6 +87,13 @@ impl Builder {
         // Iroh setup
         let secret_key = SecretKey::from_bytes(&self.secret_key);
         let mut builder = Endpoint::builder().secret_key(secret_key);
+
+        if let Some(max) = self.max_remote_nat_traversal_addresses {
+            let transport_config = QuicTransportConfig::builder()
+                .set_max_remote_nat_traversal_addresses(max)
+                .build();
+            builder = builder.transport_config(transport_config);
+        }
 
         if !self.relay_urls.is_empty() {
             let relay_map = self.relay_urls.iter().cloned().collect();
@@ -142,6 +155,7 @@ impl IrohSsh {
         remote_cmd: Vec<OsString>,
         relay_urls: &[String],
         extra_relay_urls: &[String],
+        max_remote_nat_traversal_addresses: Option<u8>,
     ) -> anyhow::Result<Child> {
         let c_exe = std::env::current_exe()?;
         let cmd = &mut Command::new("ssh");
@@ -152,6 +166,9 @@ impl IrohSsh {
         }
         for url in extra_relay_urls {
             proxy_cmd.push_str(&format!(" --extra-relay-url {url}"));
+        }
+        if let Some(max) = max_remote_nat_traversal_addresses {
+            proxy_cmd.push_str(&format!(" --max-remote-nat-traversal-addresses {max}"));
         }
         proxy_cmd.push_str(" %h");
         cmd.arg("-o")

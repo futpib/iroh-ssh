@@ -5,6 +5,7 @@ use clap::{ArgAction, Args, Parser, Subcommand};
 const TARGET_HELP: &str = "Target in the form user@ENDPOINT_ID";
 const RELAY_URL_HELP: &str = "Use only these relay servers, replacing the defaults (repeatable)";
 const EXTRA_RELAY_URL_HELP: &str = "Add relay servers alongside the defaults (repeatable)";
+const MAX_REMOTE_NAT_TRAVERSAL_ADDRESSES_HELP: &str = "Maximum number of remote NAT traversal addresses";
 
 #[derive(Parser, Debug)]
 #[command(name = "iroh-ssh", about = "ssh without ip")]
@@ -20,6 +21,9 @@ pub struct Cli {
 
     #[arg(long, value_name = "URL", help = EXTRA_RELAY_URL_HELP, action = ArgAction::Append)]
     pub extra_relay_url: Vec<String>,
+
+    #[arg(long, value_name = "N", help = MAX_REMOTE_NAT_TRAVERSAL_ADDRESSES_HELP)]
+    pub max_remote_nat_traversal_addresses: Option<u8>,
 
     #[command(flatten)]
     pub ssh: SshOpts,
@@ -56,6 +60,9 @@ pub struct ProxyArgs {
 
     #[arg(long, value_name = "URL", help = EXTRA_RELAY_URL_HELP, action = ArgAction::Append)]
     pub extra_relay_url: Vec<String>,
+
+    #[arg(long, value_name = "N", help = MAX_REMOTE_NAT_TRAVERSAL_ADDRESSES_HELP)]
+    pub max_remote_nat_traversal_addresses: Option<u8>,
 }
 
 #[derive(Args, Clone, Debug)]
@@ -68,6 +75,9 @@ pub struct ConnectArgs {
 
     #[arg(long, value_name = "URL", help = EXTRA_RELAY_URL_HELP, action = ArgAction::Append)]
     pub extra_relay_url: Vec<String>,
+
+    #[arg(long, value_name = "N", help = MAX_REMOTE_NAT_TRAVERSAL_ADDRESSES_HELP)]
+    pub max_remote_nat_traversal_addresses: Option<u8>,
 
     #[command(flatten)]
     pub ssh: SshOpts,
@@ -86,6 +96,9 @@ pub struct ExecArgs {
 
     #[arg(long, value_name = "URL", help = EXTRA_RELAY_URL_HELP, action = ArgAction::Append)]
     pub extra_relay_url: Vec<String>,
+
+    #[arg(long, value_name = "N", help = MAX_REMOTE_NAT_TRAVERSAL_ADDRESSES_HELP)]
+    pub max_remote_nat_traversal_addresses: Option<u8>,
 
     #[command(flatten)]
     pub ssh: SshOpts,
@@ -166,6 +179,9 @@ pub struct ServerArgs {
 
     #[arg(long, value_name = "URL", help = EXTRA_RELAY_URL_HELP, action = ArgAction::Append)]
     pub extra_relay_url: Vec<String>,
+
+    #[arg(long, value_name = "N", help = MAX_REMOTE_NAT_TRAVERSAL_ADDRESSES_HELP)]
+    pub max_remote_nat_traversal_addresses: Option<u8>,
 }
 
 #[derive(Subcommand, Clone, Debug)]
@@ -179,6 +195,9 @@ pub enum ServiceCmd {
 
         #[arg(long, value_name = "URL", help = EXTRA_RELAY_URL_HELP, action = ArgAction::Append)]
         extra_relay_url: Vec<String>,
+
+        #[arg(long, value_name = "N", help = MAX_REMOTE_NAT_TRAVERSAL_ADDRESSES_HELP)]
+        max_remote_nat_traversal_addresses: Option<u8>,
     },
     Uninstall,
 }
@@ -193,4 +212,7 @@ pub struct ServiceArgs {
 
     #[arg(long, value_name = "URL", help = EXTRA_RELAY_URL_HELP, action = ArgAction::Append)]
     pub extra_relay_url: Vec<String>,
+
+    #[arg(long, value_name = "N", help = MAX_REMOTE_NAT_TRAVERSAL_ADDRESSES_HELP)]
+    pub max_remote_nat_traversal_addresses: Option<u8>,
 }
