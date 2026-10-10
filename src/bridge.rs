@@ -13,7 +13,6 @@ use crate::IrohSsh;
 pub struct ConnectOptions {
     pub relay_urls: Vec<String>,
     pub extra_relay_urls: Vec<String>,
-    pub max_remote_nat_traversal_addresses: Option<u8>,
 }
 
 pub struct IrohConnectionInfo {
@@ -41,15 +40,11 @@ fn parse_relay_urls(urls: &[String]) -> anyhow::Result<Vec<RelayUrl>> {
 /// Connect to a remote iroh-ssh endpoint.
 /// Returns the local TCP port to connect an SSH client to.
 /// The port also serves as the connection identifier for `disconnect`.
-pub async fn connect(
-    endpoint_id: String,
-    options: ConnectOptions,
-) -> anyhow::Result<u16> {
+pub async fn connect(endpoint_id: String, options: ConnectOptions) -> anyhow::Result<u16> {
     let iroh_ssh = IrohSsh::builder()
         .accept_incoming(false)
         .relay_urls(parse_relay_urls(&options.relay_urls)?)
         .extra_relay_urls(parse_relay_urls(&options.extra_relay_urls)?)
-        .max_remote_nat_traversal_addresses(options.max_remote_nat_traversal_addresses)
         .build()
         .await?;
 
@@ -96,11 +91,14 @@ pub async fn connect(
         }
     });
 
-    CONNECTIONS.lock().await.insert(local_port, ConnectionState {
-        iroh_ssh,
-        shutdown: shutdown_tx,
-        connection,
-    });
+    CONNECTIONS.lock().await.insert(
+        local_port,
+        ConnectionState {
+            iroh_ssh,
+            shutdown: shutdown_tx,
+            connection,
+        },
+    );
 
     Ok(local_port)
 }
@@ -147,7 +145,8 @@ pub async fn connection_info(port: u16) -> anyhow::Result<Option<IrohConnectionI
         return Ok(None);
     };
 
-    let Some(path) = conn.to_info().selected_path() else {
+    let paths = conn.paths();
+    let Some(path) = paths.iter().find(|path| path.is_selected()) else {
         return Ok(None);
     };
 

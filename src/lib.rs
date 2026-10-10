@@ -4,6 +4,9 @@ mod cli;
 mod service;
 mod ssh;
 
+#[cfg(feature = "cli")]
+use std::path::PathBuf;
+
 use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
 use iroh::{Endpoint, RelayUrl, protocol::Router};
 
@@ -46,7 +49,8 @@ pub struct Builder {
     secret_key: [u8; SECRET_KEY_LENGTH],
     accept_incoming: bool,
     accept_port: Option<u16>,
+    #[cfg(feature = "cli")]
+    key_dir: Option<PathBuf>,
     relay_urls: Vec<RelayUrl>,
     extra_relay_urls: Vec<RelayUrl>,
-    max_remote_nat_traversal_addresses: Option<u8>,
 }
